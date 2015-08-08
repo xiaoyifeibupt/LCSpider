@@ -45,7 +45,7 @@ class xSpider(object):
 		pattern = re.compile('<input.*?csrfmiddlewaretoken.*?/>')
 		item = re.findall(pattern, content)
 #		print item[0]
-		print 'get csrfmiddlewaretoken success!'
+#		print 'get csrfmiddlewaretoken success!'
 		return item[0][item[0].find('value=') + 7 : -4]
 		
  
@@ -60,7 +60,7 @@ class xSpider(object):
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
 		thePage = response.read()
-		print 'login success!'
+#		print 'login success!'
 #		print thePage
 
 	def getSubmissionId(self, questionName):
@@ -74,10 +74,14 @@ class xSpider(object):
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
 		submissionPage = response.read()
-		submissionPage =submissionPage.replace('\n','')
-		print submissionPage
+#		print submissionPage
 		soup = BeautifulSoup(submissionPage)
-		print soup.find_all('a', text = '            Accepted        ')
+		tbodies = soup.find_all('tbody')
+#		tbody = tbodies[0].element.Tag.string
+#		print type(tbodies[0])
+		pattern = re.compile('<a class.*?success.*?>')
+		href = re.findall(pattern, submissionPage)
+		print href
 
 		 
 if __name__ == '__main__':
@@ -87,4 +91,4 @@ if __name__ == '__main__':
 	userlogin.setLoginInfo(username,password)
 	csrfmiddlewaretoken = userlogin.preLogin()
 	userlogin.login(csrfmiddlewaretoken)
-	userlogin.getSubmissionId('find-the-missing-number')
+	userlogin.getSubmissionId('space-replacement')
