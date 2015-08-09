@@ -9,7 +9,8 @@ import requests
 import cookielib
 
 from bs4 import BeautifulSoup
- 
+
+import json
 ## 这段代码是用于解决中文报错的问题  
 reload(sys)  
 sys.setdefaultencoding("utf8")  
@@ -20,6 +21,7 @@ domain = 'http://www.lintcode.com/'
 class xSpider(object):
 	 
 	def __init__(self):
+		
 		'''initiation'''
 		
 		self.name = ''
@@ -30,12 +32,16 @@ class xSpider(object):
 		urllib2.install_opener(self.opener)    
 	 
 	def setLoginInfo(self,username,password):
+		
 		'''set user information'''
+		
 		self.name = username
 		self.pwd = password
 
 	def preLogin(self):
+		
 		'''to get csrfmiddlewaretoken'''
+		
 		req = urllib2.Request('http://www.lintcode.com/accounts/signin/')
 		req.add_header('Host','www.lintcode.com')
 		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
@@ -44,13 +50,14 @@ class xSpider(object):
 
 		pattern = re.compile('<input.*?csrfmiddlewaretoken.*?/>')
 		item = re.findall(pattern, content)
-#		print item[0]
 #		print 'get csrfmiddlewaretoken success!'
 		return item[0][item[0].find('value=') + 7 : -4]
 		
  
 	def login(self, csrfmiddlewaretoken):
+		
 		'''login'''
+		
 		loginparams = {'csrfmiddlewaretoken':csrfmiddlewaretoken,'username_or_email':self.name, 'password':self.pwd}
 		req = urllib2.Request(loginurl, urllib.urlencode(loginparams))
 		req.add_header('Host','www.lintcode.com')
@@ -59,13 +66,27 @@ class xSpider(object):
 		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
-		thePage = response.read()
+		thePage = response.read()		
 #		print 'login success!'
-#		print thePage
+		return thePage
+
+	def getAcceptedQuetionList(self, questionPage):
+		
+		'''get Accepted Quetion List'''
+		
+		question_soup = BeautifulSoup(questionPage)
+		questionList = question_soup.find('div', attrs={"class": "list-group list"}).find_all('a')
+		acceptedQuetionList = []
+		for questionItem in questionList:
+			if questionItem.get_text('|', strip=True).split('|')[1] == 'Accepted':
+				acceptedQuetionList.append(questionItem.get('href'))
+		return acceptedQuetionList
 
 	def getSubmissionId(self, questionName):
-		'''download each question'''
-		quesURL = domain + 'zh-cn/problem/' + questionName + '/submissions/'
+		
+		'''download each submission question id'''
+		
+		quesURL = domain + 'zh-cn' + questionName + '/submissions/'
 		req = urllib2.Request(quesURL)
 		req.add_header('Host','www.lintcode.com')
 		req.add_header('Origin','http://www.lintcode.com')
@@ -74,21 +95,51 @@ class xSpider(object):
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
 		submissionPage = response.read()
-#		print submissionPage
-		soup = BeautifulSoup(submissionPage)
-		tbodies = soup.find_all('tbody')
-#		tbody = tbodies[0].element.Tag.string
-#		print type(tbodies[0])
-		pattern = re.compile('<a class.*?success.*?>')
-		href = re.findall(pattern, submissionPage)
-		print href
+
+		submission_soup = BeautifulSoup(submissionPage)
+		#fromate
+		new_submissionPage = submission_soup.prettify()
+		new_submission_soup = BeautifulSoup(new_submissionPage)
+		
+		hrefList = new_submission_soup.find_all('a', attrs={"class": " text-success "})
+		idhref = hrefList[0].get('href')
+		return idhref
+
+	def getCode(self, submissionId):
+
+		'''get code'''
+
+		codeURL = domain + submissionId
+		req = urllib2.Request(codeURL)
+		req.add_header('Host','www.lintcode.com')
+		req.add_header('Origin','http://www.lintcode.com')
+		req.add_header('Referer','http://www.lintcode.com/zh-cn/accounts/signin/')
+		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
+		response = urllib2.urlopen(req)
+		self.operate = self.opener.open(req)
+		codePage = response.read().decode('utf-8')
+		
+		pattern = re.compile('var response =.*?};')
+		codeStr = re.findall(pattern, codePage)
+		codeReal = codeStr[0][codeStr[0].find('class Solution'):-1]
+		print codeReal
+#		codeReal = codeStr[0][codeStr[0].find()]
 
 		 
 if __name__ == '__main__':
-	userlogin = xSpider()
+	userSpider = xSpider()
+	
 	username = 'xiaoyifeibupt'
 	password = 'x1a0ya0'
-	userlogin.setLoginInfo(username,password)
-	csrfmiddlewaretoken = userlogin.preLogin()
-	userlogin.login(csrfmiddlewaretoken)
-	userlogin.getSubmissionId('space-replacement')
+	
+	userSpider.setLoginInfo(username,password)
+	
+	csrfmiddlewaretoken = userSpider.preLogin()
+	
+	questionPage = userSpider.login(csrfmiddlewaretoken)
+
+	acceptedQuetionList = userSpider.getAcceptedQuetionList(questionPage)
+	
+	submissionId = userSpider.getSubmissionId(acceptedQuetionList[0])
+
+	userSpider.getCode(submissionId)
