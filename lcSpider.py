@@ -10,7 +10,6 @@ import cookielib
 
 from bs4 import BeautifulSoup
 
-import json
 ## 这段代码是用于解决中文报错的问题  
 reload(sys)  
 sys.setdefaultencoding("utf8")  
@@ -122,8 +121,7 @@ class xSpider(object):
 		pattern = re.compile('var response =.*?};')
 		codeStr = re.findall(pattern, codePage)
 		codeReal = codeStr[0][codeStr[0].find('class Solution'):-1]
-		print codeReal
-#		codeReal = codeStr[0][codeStr[0].find()]
+		return codeReal
 
 		 
 if __name__ == '__main__':
@@ -142,4 +140,13 @@ if __name__ == '__main__':
 	
 	submissionId = userSpider.getSubmissionId(acceptedQuetionList[0])
 
-	userSpider.getCode(submissionId)
+	myCode = userSpider.getCode(submissionId).encode('ascii', 'ignore')
+	
+#	print type(myCode)
+#	print myCode
+
+	f = open('aa.cpp', 'w')
+	f.write(myCode)
+	f.close
+
+
