@@ -8,13 +8,15 @@ import urllib
 import requests
 import cookielib
 
+import json
+
 from bs4 import BeautifulSoup
 
 ## 这段代码是用于解决中文报错的问题  
 reload(sys)  
 sys.setdefaultencoding("utf8")  
 #####################################################
-loginurl = 'http://www.lintcode.com/zh-cn/accounts/signin/'
+
 domain = 'http://www.lintcode.com/'
  
 class xSpider(object):
@@ -49,24 +51,27 @@ class xSpider(object):
 
 		pattern = re.compile('<input.*?csrfmiddlewaretoken.*?/>')
 		item = re.findall(pattern, content)
-#		print 'get csrfmiddlewaretoken success!'
+		print 'get csrfmiddlewaretoken success!'
 		return item[0][item[0].find('value=') + 7 : -4]
 		
  
 	def login(self, csrfmiddlewaretoken):
 		
 		'''login'''
-		
+		loginurl = 'http://www.lintcode.com/zh-cn/accounts/signin/'		
 		loginparams = {'csrfmiddlewaretoken':csrfmiddlewaretoken,'username_or_email':self.name, 'password':self.pwd}
+		
 		req = urllib2.Request(loginurl, urllib.urlencode(loginparams))
+		
 		req.add_header('Host','www.lintcode.com')
 		req.add_header('Origin','http://www.lintcode.com')
 		req.add_header('Referer','http://www.lintcode.com/zh-cn/accounts/signin/')
 		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
+		
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
 		thePage = response.read()		
-#		print 'login success!'
+		print 'login success!'
 		return thePage
 
 	def getAcceptedQuetionList(self, questionPage):
@@ -74,11 +79,12 @@ class xSpider(object):
 		'''get Accepted Quetion List'''
 		
 		question_soup = BeautifulSoup(questionPage)
-		questionList = question_soup.find('div', attrs={"class": "list-group list"}).find_all('a')
+		questionList = question_soup.find('div', attrs={'class': 'list-group list'}).find_all('a')
 		acceptedQuetionList = []
 		for questionItem in questionList:
 			if questionItem.get_text('|', strip=True).split('|')[1] == 'Accepted':
 				acceptedQuetionList.append(questionItem.get('href'))
+		print 'getAcceptedQuetionList success'
 		return acceptedQuetionList
 
 	def getSubmissionId(self, questionName):
@@ -96,17 +102,14 @@ class xSpider(object):
 		submissionPage = response.read()
 
 		submission_soup = BeautifulSoup(submissionPage)
-		#fromate
-		new_submissionPage = submission_soup.prettify()
-		new_submission_soup = BeautifulSoup(new_submissionPage)
+		hrefList = submission_soup.find('tbody').find_all('a')
 		
-		hrefList = new_submission_soup.find_all('a', attrs={"class": " text-success "})
 		idhref = hrefList[0].get('href')
 		return idhref
 
 	def getCode(self, submissionId):
 
-		'''get code'''
+		'''get description and code'''
 
 		codeURL = domain + submissionId
 		req = urllib2.Request(codeURL)
@@ -116,19 +119,34 @@ class xSpider(object):
 		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
-		codePage = response.read().decode('utf-8')
+		codePage = response.read()
 		
-		pattern = re.compile('var response =.*?};')
-		codeStr = re.findall(pattern, codePage)
-		codeReal = codeStr[0][codeStr[0].find('class Solution'):-1]
-		return codeReal
+		code_soup = BeautifulSoup(codePage)
+		questionList = code_soup.find_all('p')
+		description = '/**\n*' + questionList[1].get_text()
+		otherItemList = code_soup.find_all('div',attrs={'class': 'm-t-lg m-b-lg'})
+		for otherItem in otherItemList:
+			description += otherItem.get_text('*')
+		description += '*/\n\n'
+		pattern = re.compile('var response =.*?lint_info.*?};')
+		codeStrList = re.findall(pattern, codePage)
+		codevar =  str(codeStrList[0])
+		codeStr = codevar[codevar.find('var response = ') + 15 : - 1]
+		codeDict = json.loads(codeStr)
+
+		codeReal = codeDict["solution"]
+		
+		return description, codeReal
 
 		 
 if __name__ == '__main__':
+	if len(sys.argv) != 3:
+		print 'Usage ./lcSpider.py USERNAME PASSWORD'
+		sys.exit(0)
 	userSpider = xSpider()
 	
-	username = 'xiaoyifeibupt'
-	password = 'x1a0ya0'
+	username = sys.argv[1]
+	password = sys.argv[2]
 	
 	userSpider.setLoginInfo(username,password)
 	
@@ -137,16 +155,19 @@ if __name__ == '__main__':
 	questionPage = userSpider.login(csrfmiddlewaretoken)
 
 	acceptedQuetionList = userSpider.getAcceptedQuetionList(questionPage)
-	
-	submissionId = userSpider.getSubmissionId(acceptedQuetionList[0])
 
-	myCode = userSpider.getCode(submissionId).encode('ascii', 'ignore')
-	
-#	print type(myCode)
-#	print myCode
+	count = 0
 
-	f = open('aa.cpp', 'w')
-	f.write(myCode)
-	f.close
+	for acceptedQuetion in acceptedQuetionList:
+		count += 1
+		submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
+		description, myCode = userSpider.getCode(submissionId)
+		
+		codeFile = open('lintcode/' + acceptedQuetion[9:] + '.cpp', 'w')
+		codeFile.write(description)
+		codeFile.write(str(myCode).replace('\\n','\n'))
+		codeFile.close
+		if count % 5 == 0:
+			print count
 
 
