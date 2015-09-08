@@ -2,6 +2,7 @@
 #coding:utf-8
  
 import sys
+import os
 import re
 import urllib2
 import urllib
@@ -158,16 +159,20 @@ if __name__ == '__main__':
 
 	count = 0
 
+        FileExistNames = os.listdir('lintcode/')
+
 	for acceptedQuetion in acceptedQuetionList:
-		count += 1
-		submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
-		description, myCode = userSpider.getCode(submissionId)
+#		count += 1
+		if acceptedQuetion[9:] + '.cpp' not in FileExistNames:
+                        submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
+                        description, myCode = userSpider.getCode(submissionId)
 		
-		codeFile = open('lintcode/' + acceptedQuetion[9:] + '.cpp', 'w')
-		codeFile.write(description)
-		codeFile.write(str(myCode).replace('\\n','\n'))
-		codeFile.close
-		if count % 5 == 0:
-			print count
+                        codeFile = open('lintcode/' + acceptedQuetion[9:] + '.cpp', 'w')
+                        codeFile.write(description)
+                        codeFile.write(str(myCode).replace('\\n','\n'))
+                        codeFile.close
+                        print 'get ' + acceptedQuetion[9:] + '.cpp success'
+#                        if count % 5 == 0:
+#                                print count
 
 
