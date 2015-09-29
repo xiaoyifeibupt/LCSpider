@@ -2,14 +2,18 @@
 #coding:utf-8
  
 import sys
+import os
 import re
 import urllib2
 import urllib
 import requests
 import cookielib
 
-import lxml.html.soupparser as soupparser
+import getpass
 
+import json
+
+from bs4 import BeautifulSoup
 
 ## 这段代码是用于解决中文报错的问题  
 reload(sys)  
@@ -47,12 +51,11 @@ class xSpider(object):
 		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
 		response = urllib2.urlopen(req)
 		login_page = response.read()
-
-		dom = soupparser.fromstring(login_page)
-		csrfmiddlewaretoken = dom.xpath("//*[@name='csrfmiddlewaretoken']/@value")[0]
-
+		
+		pattern = re.compile('<input.*?csrfmiddlewaretoken.*?/>')
+		item = re.findall(pattern, login_page)
 		print 'get csrfmiddlewaretoken success!'
-		return csrfmiddlewaretoken
+		return item[0][item[0].find('value=') + 7 : -4]
 		
  
 	def login(self, csrfmiddlewaretoken):
@@ -78,19 +81,22 @@ class xSpider(object):
 		
 		'''get Accepted Quetion List'''
 		
-		problem_urls = soupparser.fromstring(problem_page).xpath("//tr[td/span/@class='ac']/td[2]/a/@href")
-		if not problem_urls:
-			print "problems cannot be found. Username or password may not be right"
-			sys.exit(-1)
-		problems = map(lambda url:url.split('/')[-2],problem_urls)
+		question_soup = BeautifulSoup(questionPage)
+		trList = question_soup.find('table', attrs={'id': 'problemList'}).find_all('tr')
+		trList.pop(0)
+		acceptedQuetionList = []
+		for tr in trList:
+			if tr.span.attrs['class'][0] == 'ac':
+				acceptedQuetionList.append(tr.a.attrs['href'])
+		
 		print 'getAcceptedQuetionList success'
-		return problems
+		return acceptedQuetionList
 
 	def getSubmissionId(self, questionName):
 		
 		'''download each submission question id'''
 
-		quesURL = domain + 'problems/' + questionName + '/submissions/'
+		quesURL = domain + questionName + '/submissions/'
 		req = urllib2.Request(quesURL)
 		req.add_header('Host','leetcode.com')
 		req.add_header('Origin','https://leetcode.com')
@@ -99,13 +105,12 @@ class xSpider(object):
 		response = urllib2.urlopen(req)
 		self.operate = self.opener.open(req)
 		submissionPage = response.read()
-
-		results = soupparser.fromstring(submissionPage).xpath("//a[contains(@class,'status-accepted')]/@href")
-		if not results:
-			print 'accepted submission cannot be found on the first page'
-			return
-		
-		return results[0]
+		submission_soup = BeautifulSoup(submissionPage)
+		trList = submission_soup.find('table', attrs={'id': 'result_testcases'}).find_all('tr')
+		trList.pop(0)
+		for tr in trList:
+			if tr.find_next('a').find_next('a').string == 'Accepted':
+				return tr.find_next('a').find_next('a').attrs['href']
 
 	def getCode(self, submissionId):
 
@@ -121,10 +126,16 @@ class xSpider(object):
 		self.operate = self.opener.open(req)
 		codePage = response.read()
 		
-		match_results = re.search("scope.code.cpp[^']*'([^']*)'",codePage)
-		code = match_results.group(1).decode('unicode-escape')
-		with open(problem_name+'.cpp','w') as w:
-			w.write(code)
+		code_soup = BeautifulSoup(codePage)
+		metaList = code_soup.find('meta', attrs={'name': 'description'})
+		metap = re.compile('(\r\n)+')
+		subdsc = metap.sub('\n*', str(metaList)[15:-22])
+		description = '/**\n*' + subdsc + '\n*/\n'
+		
+		pattern = re.compile('vm.code.cpp .*?;')
+		codeStr = str(re.findall(pattern, codePage)[0])
+		codeReal = codeStr[15:-2]
+		return description, eval("u'%s'"%codeReal).replace('\r\n','\n')
 
 		 
 if __name__ == '__main__':
@@ -142,22 +153,17 @@ if __name__ == '__main__':
 
 	questionPage = userSpider.login(csrfmiddlewaretoken)
 
-	print questionPage
-
-#	acceptedQuetionList = userSpider.getAcceptedQuetionList(questionPage)
-
-#	count = 0
-
-#	for acceptedQuetion in acceptedQuetionList:
-#		count += 1
-#		submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
-#		description, myCode = userSpider.getCode(submissionId)
-#		
-#		codeFile = open('lintcode/' + acceptedQuetion[9:] + '.cpp', 'w')
-#		codeFile.write(description)
-#		codeFile.write(str(myCode).replace('\\n','\n'))
-#		codeFile.close
-#		if count % 5 == 0:
-#			print count
+	acceptedQuetionList = userSpider.getAcceptedQuetionList(questionPage)
+	
+	FileExistNames = os.listdir('./leetcode')
+	for acceptedQuetion in acceptedQuetionList:
+		if acceptedQuetion[10:-1] + '.cpp' not in FileExistNames:
+			submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
+			description, myCode = userSpider.getCode(submissionId)
+			codeFile = open('leetcode/' + acceptedQuetion[10:-1] + '.cpp', 'w')
+			codeFile.write(description)
+			codeFile.write(myCode)
+			codeFile.close
+			print 'get ' + acceptedQuetion[10:-1] + '.cpp success'
 
 

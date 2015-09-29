@@ -9,6 +9,8 @@ import urllib
 import requests
 import cookielib
 
+import getpass
+
 import json
 
 from bs4 import BeautifulSoup
@@ -88,6 +90,29 @@ class xSpider(object):
 		print 'getAcceptedQuetionList success'
 		return acceptedQuetionList
 
+		
+		
+	def getEachLadderList(self,level):
+		ladderURL = domain + 'en/ladder/2/level/' + level +'/'
+		req = urllib2.Request(ladderURL)
+		req.add_header('Host','www.lintcode.com')
+		req.add_header('Origin','http://www.lintcode.com')
+		req.add_header('Referer','http://www.lintcode.com/zh-cn/accounts/signin/')
+		req.add_header('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.130 Safari/537.36')
+		response = urllib2.urlopen(req)
+		self.operate = self.opener.open(req)
+		ladderPage = response.read()
+		
+		ladder_soup = BeautifulSoup(ladderPage)
+		eachStepList = ladder_soup.find_all('a',attrs={'class': 'list-group-item'})
+		
+		acceptedQuetionList = []
+		for questionItem in eachStepList:
+			if questionItem.get_text('|', strip=True).split('|')[1] == 'Accepted':
+				acceptedQuetionList.append(questionItem.get('href'))
+		print 'getAcceptedQuetionList success'
+		return acceptedQuetionList
+		
 	def getSubmissionId(self, questionName):
 		
 		'''download each submission question id'''
@@ -141,13 +166,13 @@ class xSpider(object):
 
 		 
 if __name__ == '__main__':
-	if len(sys.argv) != 3:
-		print 'Usage ./lcSpider.py USERNAME PASSWORD'
+	if len(sys.argv) != 2:
+		print 'Usage ./lcSpider.py USERNAME'
 		sys.exit(0)
 	userSpider = xSpider()
 	
 	username = sys.argv[1]
-	password = sys.argv[2]
+	password = getpass.getpass('Password:')
 	
 	userSpider.setLoginInfo(username,password)
 	
@@ -155,24 +180,43 @@ if __name__ == '__main__':
 	
 	questionPage = userSpider.login(csrfmiddlewaretoken)
 
+	'''get ladderPage'''
+	'''
+	stepList = ['1.String','2.Integer-Array','3.Binary-Search','4.Math-Bit-Manipulation','5.Greedy',
+				'6.Linked-List','7.Binary-Tree','8.Search-Recursion','9.Dynamic-Programming','10.Data-Structure']
+	for step in stepList:
+		stepAcceptedQuetionList = userSpider.getEachLadderList(step.split('.')[0])
+		for stepAcceptedQuetion in stepAcceptedQuetionList:
+			htmlfilefrom = open('lintcodeHTML/all/' + stepAcceptedQuetion[9:] + '.cpp.html').read()
+			htmlpath = 'lintcodeHTML/US-Giants/' + step
+			if not os.path.isdir(htmlpath):
+				os.makedirs(htmlpath)
+			
+			htmlfileto = open(htmlpath + '/' + stepAcceptedQuetion[9:] + '.cpp.html', 'w')
+			htmlfileto.write(htmlfilefrom)
+			htmlfileto.close
+			
+'''
 	acceptedQuetionList = userSpider.getAcceptedQuetionList(questionPage)
 
 	count = 0
 
-        FileExistNames = os.listdir('lintcode/')
+	FileExistNames = os.listdir('./lintcode')
 
 	for acceptedQuetion in acceptedQuetionList:
 #		count += 1
 		if acceptedQuetion[9:] + '.cpp' not in FileExistNames:
-                        submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
-                        description, myCode = userSpider.getCode(submissionId)
+			submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
+			description, myCode = userSpider.getCode(submissionId)
 		
-                        codeFile = open('lintcode/' + acceptedQuetion[9:] + '.cpp', 'w')
-                        codeFile.write(description)
-                        codeFile.write(str(myCode).replace('\\n','\n'))
-                        codeFile.close
-                        print 'get ' + acceptedQuetion[9:] + '.cpp success'
-#                        if count % 5 == 0:
-#                                print count
+			codeFile = open('lintcode/' + acceptedQuetion[9:] + '.cpp', 'w')
+			codeFile.write(description)
+			codeFile.write(str(myCode).replace('\\n','\n'))
+			codeFile.close
+			print 'get ' + acceptedQuetion[9:] + '.cpp success'
+#			if count % 5 == 0:
+#				print count
+
+
 
 
