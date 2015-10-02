@@ -15,6 +15,9 @@ import json
 
 from bs4 import BeautifulSoup
 
+import socket
+socket.setdefaulttimeout(100.0) 
+
 ## 这段代码是用于解决中文报错的问题  
 reload(sys)  
 sys.setdefaultencoding("utf8")  
@@ -81,7 +84,7 @@ class xSpider(object):
 		
 		'''get Accepted Quetion List'''
 		
-		question_soup = BeautifulSoup(questionPage)
+		question_soup = BeautifulSoup(problem_page)
 		trList = question_soup.find('table', attrs={'id': 'problemList'}).find_all('tr')
 		trList.pop(0)
 		acceptedQuetionList = []
@@ -139,13 +142,13 @@ class xSpider(object):
 
 		 
 if __name__ == '__main__':
-	if len(sys.argv) != 3:
-		print 'Usage ./lcSpider.py USERNAME PASSWORD'
+	if len(sys.argv) != 2:
+		print 'Usage ./lcSpider.py USERNAME'
 		sys.exit(0)
 	userSpider = xSpider()
 	
 	username = sys.argv[1]
-	password = sys.argv[2]
+	password = getpass.getpass('Password:')
 	
 	userSpider.setLoginInfo(username,password)
 	
@@ -158,6 +161,7 @@ if __name__ == '__main__':
 	FileExistNames = os.listdir('./leetcode')
 	for acceptedQuetion in acceptedQuetionList:
 		if acceptedQuetion[10:-1] + '.cpp' not in FileExistNames:
+			print 'get ' + acceptedQuetion[10:-1] +'......'
 			submissionId = 	userSpider.getSubmissionId(acceptedQuetion)
 			description, myCode = userSpider.getCode(submissionId)
 			codeFile = open('leetcode/' + acceptedQuetion[10:-1] + '.cpp', 'w')
