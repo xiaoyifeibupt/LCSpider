@@ -2,7 +2,7 @@
 
 This script can be used to download all your [LintCode](http://www.lintcode.com/) accepted submissions and questions.
 
-##summary
+## summary
 
 -	beautifulsoup
 -	csrfmiddlewaretoken
@@ -12,12 +12,12 @@ This script can be used to download all your [LintCode](http://www.lintcode.com/
 
 
 
-##usage:
+## usage:
 
 	./lcSpider.py USERNAME PASSWORD
 
 
-##Node:
+## Note:
 
 (1) C++ is the only supported language. But you can easily modify this script to support others.
 
@@ -25,6 +25,6 @@ This script can be used to download all your [LintCode](http://www.lintcode.com/
 
 (3) This script will only download the latest successful submission for each problem. If the file exits locally, it will be updated.
 
-##licence
+## licence
 
 Do What the Fuck You Want to Public License
